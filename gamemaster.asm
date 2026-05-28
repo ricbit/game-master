@@ -1,6 +1,6 @@
 ; Game Master (MSX, Konami, 1985, RC-735)
 ; Disassembled by Ricardo Bittencourt (bluepenguin@gmail.com)
-; Last update at 2026-05-27
+; Last update at 2026-05-28
 ;
 	output "gamemaster.bin"
 	org 04000h
@@ -603,7 +603,7 @@ GAME_BOOT:
         ; SS subslot field at bits 2-3; for a non-expanded byte the +1
         ; increments the primary slot at bits 0-1. This is why the manual
         ; instructs the user to put Game Master in slot 1 (or A) and the
-        ; game in slot 2 (or B). See INTERNALS.md § Game-cart detection.
+        ; game in slot 2 (or B).
         or      a                                              ;#4029: B7
         ld      b,4                                            ;#402A: 06 04
         jp      m,BOOT_SLOT_ID_MERGE                           ;#402C: FA 31 40
@@ -614,7 +614,7 @@ BOOT_SLOT_ID_MERGE:
         ld      (GAME_CART_SLOT),a                             ;#4032: 32 2F D1
         call    COPY_SLOT_SCANNER_TO_RAM                       ;#4035: CD CE 40
         jr      nc,BOOT_VERIFY_AND_INIT                        ;#4038: 30 0F
-        jp      SLOT_SCANNER_ROM_END                           ;#403A: C3 60 41
+        jp      BOOT_INTO_DISK_BASIC                           ;#403A: C3 60 41
 
 RELOAD_GAME_FROM_RAM:
         ; Restore the 1100h-byte image from GAME_RAM_SHADOW_E280 into SLOT_SCANNER_RAM
@@ -839,7 +839,7 @@ TXT_DISK_BASIC_TAIL:
 
 SLOT_SCANNER_ROM_END:
 BOOT_INTO_DISK_BASIC:
-        ; Disk BASIC located; switch to SCREEN 1 and CALSLT into its init routine
+        ; Disk BASIC located: border=1 + CHGCLR, install return hook, CALSLT into init
         ld      a,1                                            ;#4160: 3E 01
         ld      (BIOS_BDRCLR),a                                ;#4162: 32 EB F3
         call    BIOS_CHGCLR                                    ;#4165: CD 62 00
@@ -854,7 +854,7 @@ BOOT_INTO_DISK_BASIC:
         ld      de,RETURN_FROM_DISK_BASIC_RAM                  ;#417C: 11 00 C8
         LD_BC_SIZE RETURN_FROM_DISK_BASIC                      ;#417F: 01 0B 00
         ldir                                                   ;#4182: ED B0
-        ld      hl,RETURN_FROM_DISK_BASIC_END                  ;#4184: 21 A0 41
+        ld      hl,TRAMPOLINE_TO_RETURN_FROM_DISK_BASIC        ;#4184: 21 A0 41
         ld      de,BIOS_H_DISK_RETURN_HOOK                     ;#4187: 11 DA FE
         ld      bc,3                                           ;#418A: 01 03 00
         ldir                                                   ;#418D: ED B0
@@ -1925,7 +1925,7 @@ RANKING_TABLE_RESET:
         LD_BC_SIZE TXT_KONAMI                                  ;#49E2: 01 06 00
         ldir                                                   ;#49E5: ED B0
         ld      de,RANKING_SCORE_BLOCK                         ;#49E7: 11 59 D4
-        ld      hl,TXT_KONAMI_END                              ;#49EA: 21 67 49
+        ld      hl,RANK_INIT_DATA                              ;#49EA: 21 67 49
         ld      bc,3                                           ;#49ED: 01 03 00
         ldir                                                   ;#49F0: ED B0
         ret                                                    ;#49F2: C9
@@ -2191,7 +2191,7 @@ GAME_CART_PATCH_SLOT:
         call    GAME_CART_TRAMPOLINE_RAM                       ;#4BE8: CD 14 D8
 INSTALL_ISR_TO_RAM:
         ; Copy ISR_GAME_RUNNING into ISR_GAME_RUNNING_RAM (14Ah bytes of RAM scratch)
-        ld      hl,GAME_CART_TRAMPOLINE_END                    ;#4BEB: 21 32 4C
+        ld      hl,ISR_GAME_RUNNING                            ;#4BEB: 21 32 4C
         ld      de,ISR_GAME_RUNNING_RAM                        ;#4BEE: 11 70 D1
         LD_BC_SIZE ISR_GAME_RUNNING                            ;#4BF1: 01 4A 01
         ldir                                                   ;#4BF4: ED B0
@@ -2277,7 +2277,7 @@ ISR_GAME_RUNNING_RAM:
         di                                                     ;#D19F: F3
         bit     4,a                                            ;#D1A0: CB 67
         jr      z,ISR_CHECK_MODIFY_FLAGS                       ;#D1A2: 28 07
-        ld      ix,ISR_GAME_RUNNING_END                        ;#D1A4: DD 21 7C 4D
+        ld      ix,TOGGLE_MENU_FROM_GAME                       ;#D1A4: DD 21 7C 4D
         jp      BIOS_CALSLT                                    ;#D1A8: C3 1C 00
 
 ISR_CHECK_MODIFY_FLAGS:
@@ -4626,8 +4626,6 @@ UNPACK_CD_HEADER:
         ; handlers from the legacy LIVES/STAGE dispatch-table path (used by
         ; 'AB' carts where GAME_HEADER was the +2 byte = 0) to the direct-
         ; pointer path that uses the new fields.
-        ;
-        ; See INTERNALS § The 'CD'-format header for the cart-side layout.
         ld      hl,CART_MAGIC_CD                               ;#5D0B: 21 43 44
         rst     20h                                            ;#5D0E: E7
         jr      nz,FINGERPRINT_GAME_CART                       ;#5D0F: 20 60
